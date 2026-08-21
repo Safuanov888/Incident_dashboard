@@ -1,7 +1,6 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-import plotly.graph_objects as go
 
 st.set_page_config(
     page_title='Дашборд по инцидентам',
@@ -45,8 +44,6 @@ filtered_logs = logs_with_emp[
 
 filtered_employees = employees[employees['department'].isin(selected_departments)]
 
-filtered_access = changes_with_emp[changes_with_emp['new_level'].isin(selected_departments)]
-
 filtered_changes_with_emp = changes_with_emp[changes_with_emp['department'].isin(selected_departments)]
 
 ## Метрики KPI
@@ -56,7 +53,7 @@ failure_logs = len(filtered_logs[filtered_logs['status'] == 'failure'])
 
 col1.metric('Всего логов', all_logs)
 col2.metric('Неудачные входы', failure_logs)
-col3.metric('Процент неудачных входов', round(failure_logs / all_logs * 100))
+col3.metric('Процент неудачных входов', round(failure_logs / all_logs * 100, 1) if all_logs > 0 else 0)
 col4.metric('Количество уникальных сотрудников', filtered_logs['user_id'].nunique())
 
 ## Графики
@@ -84,7 +81,7 @@ groupby_emp_failure = filtered_logs[filtered_logs['status'] == 'failure'].groupb
 top_groupby_emp_failure = groupby_emp_failure.sort_values(ascending=False).head().reset_index()
 fig5 = px.bar(top_groupby_emp_failure, x='status', y='name', color='name',
               title='Топ человек по неудачным входам в систему', orientation='h')
-fig5.update_layout(yaxis={'categoryorder': 'total ascending'})
+fig5.update_layout(yaxis={'categoryorder': 'total ascending'}, xaxis_title="attempts")
 col8.plotly_chart(fig5, width='stretch')
 
 admin_with_failure = filtered_logs[(filtered_logs['status'] == 'failure') & (filtered_logs['access_logs'] == 'admin')]
@@ -94,9 +91,10 @@ st.dataframe(data=table, width='stretch', height='stretch')
 
 ## Выводы
 groupby_dep_failure = filtered_logs[filtered_logs['status'] == 'failure'].groupby(['department'])['status'].count()
-top = groupby_dep_failure.sort_values(ascending=False).head().reset_index().loc[0, 'department']
-st.write(f'Отдел, лидирующий по неудачным входам: {top}')
+if len(groupby_dep_failure) != 0:
+    top = groupby_dep_failure.sort_values(ascending=False).head().reset_index().loc[0, 'department']
+    st.success(f"🔴 Отдел, лидирующий по неудачным входам: **{top}**")
 
-st.write(f'Количество администраторов, превысивших порог в 5 неудач: {len(table)}')
+st.warning(f"⚠️ Количество администраторов с превышением порога: **{len(table)}**")
 
-st.write(f'Количество удачных входов: {all_logs - failure_logs}')
+st.info(f'ℹ️ Количество удачных входов: {all_logs - failure_logs}')
